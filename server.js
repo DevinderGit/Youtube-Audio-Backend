@@ -55,7 +55,8 @@ app.get('/stream', async (req, res) => {
 
     try {
         const ytDlp = spawn('yt-dlp', [
-            '--add-header', `cookie: ${globalCookies}`,
+            '--add-header', 
+            '--cookies', 'cookies.txt',
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
             '-f', 'best[height<=360]',
             '-o', '-', 
