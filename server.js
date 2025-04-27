@@ -10,7 +10,7 @@ let globalCookies = ''; // Will store the cookies globally
 
 async function getCookiesFromBrowserless(url) {
     const browser = await puppeteer.connect({
-        browserWSEndpoint: 'wss://chrome.browserless.io?token=YOUR_TOKEN',
+        browserWSEndpoint: 'wss://chrome.browserless.io?token=SCw0dcFKK12OpT8e4ba85d43ea18b6ada65a991ea3',
         defaultViewport: null,
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
