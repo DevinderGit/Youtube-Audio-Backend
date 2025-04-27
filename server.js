@@ -1,31 +1,36 @@
-
 const express = require('express');
 const cors = require('cors');
-const ytdl = require('@distube/ytdl-core');
+const { spawn } = require('child_process');
 const app = express();
 
 app.use(cors());
 
 app.get('/stream', async (req, res) => {
     const videoUrl = req.query.url;
-    if (!videoUrl || !ytdl.validateURL(videoUrl)) {
+    if (!videoUrl || !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(videoUrl)) {
         return res.status(400).send('Invalid YouTube URL');
     }
 
     try {
-        const info = await ytdl.getInfo(videoUrl);
-        const format = ytdl.chooseFormat(info.formats, {
-            quality: 'lowest',
-            filter: format => format.hasVideo && format.hasAudio, // Ensure both video and audio
-        });
-        
-        const stream = ytdl(videoUrl, {
-            format: format, // Use the selected format
-            highWaterMark: 1 << 25, // 32 MB buffer
-        });
-        
+        const ytDlp = spawn('yt-dlp', [
+            '-f', 'best[height<=360]', // Simplified format
+            '-o', '-', // Output to stdout
+            videoUrl
+        ]);
+
         res.setHeader('Content-Type', 'video/mp4');
-        stream.pipe(res);
+        ytDlp.stdout.pipe(res);
+
+        ytDlp.stderr.on('data', (data) => {
+            console.error(`yt-dlp stderr: ${data}`);
+        });
+
+        ytDlp.on('close', (code) => {
+            if (code !== 0) {
+                console.error(`yt-dlp process exited with code ${code}`);
+                res.end();
+            }
+        });
 
     } catch (err) {
         console.error('Streaming error:', err);
