@@ -1,10 +1,11 @@
 # Use official Node.js image as the base image
 FROM node:16
 
-# Install yt-dlp and ffmpeg
+# Install yt-dlp and ffmpeg via pip and apt respectively
 RUN apt-get update && apt-get install -y \
-    yt-dlp \
     ffmpeg \
+    python3-pip \
+    && pip3 install yt-dlp \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
