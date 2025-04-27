@@ -1,9 +1,24 @@
 const express = require('express');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const puppeteer = require('puppeteer'); // Add puppeteer
 const app = express();
 
 app.use(cors());
+
+async function getCookiesFromPuppeteer(url) {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'networkidle2' });
+
+    const cookies = await page.cookies();
+
+    await browser.close();
+
+    // Format cookies for yt-dlp
+    const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
+    return cookieString;
+}
 
 app.get('/stream', async (req, res) => {
     const videoUrl = req.query.url;
@@ -12,8 +27,10 @@ app.get('/stream', async (req, res) => {
     }
 
     try {
+        const cookieHeader = await getCookiesFromPuppeteer(videoUrl);
+
         const ytDlp = spawn('yt-dlp', [
-            '--cookies', 'cookies.txt',
+            '--add-header', `Cookie: ${cookieHeader}`,
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
             '-f', 'best[height<=360]',         // Your format selection
             '-o', '-',                         // Output to stdout
