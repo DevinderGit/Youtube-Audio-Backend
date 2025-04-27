@@ -5,7 +5,7 @@ FROM node:16
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3-pip \
-    && pip3 install yt-dlp \
+    && pip3 install yt-dlp -U \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
