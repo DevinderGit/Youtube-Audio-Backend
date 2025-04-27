@@ -13,8 +13,7 @@ app.get('/stream', async (req, res) => {
 
     try {
         const ytDlp = spawn('yt-dlp', [
-            '-u', 'sdevider@gmail.com',   // Replace with your YouTube username
-            '-p', '16November2003',   // Replace with your YouTube password
+            '--cookies', 'cookies.txt',
             '-f', 'best[height<=360]',         // Your format selection
             '-o', '-',                         // Output to stdout
             videoUrl
