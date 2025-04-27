@@ -1,31 +1,47 @@
 const express = require('express');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const puppeteer = require('puppeteer-core');
+
 const app = express();
 app.use(cors());
 
-
-const puppeteer = require('puppeteer-core'); // Use puppeteer-core for remote connections
+let globalCookies = ''; // Will store the cookies globally
 
 async function getCookiesFromBrowserless(url) {
     const browser = await puppeteer.connect({
-        browserWSEndpoint: 'wss://chrome.browserless.io?token=SCw0dcFKK12OpT8e4ba85d43ea18b6ada65a991ea3', // Replace YOUR_API_KEY with your actual API key
-        defaultViewport: null, // Optional, depending on your needs
+        browserWSEndpoint: 'wss://chrome.browserless.io?token=YOUR_TOKEN',
+        defaultViewport: null,
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2' });
 
     const cookies = await page.cookies();
-
     await browser.close();
 
-    // Format cookies for yt-dlp or other tools
-    const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
+    const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
     return cookieString;
 }
+
+// Function to refresh cookies every 6 hours (optional but smart)
+async function refreshCookies() {
+    console.log('Refreshing cookies...');
+    try {
+        globalCookies = await getCookiesFromBrowserless('https://www.youtube.com');
+        console.log('Cookies refreshed!');
+    } catch (err) {
+        console.error('Failed to refresh cookies:', err);
+    }
+}
+
+// Immediately get cookies when server starts
+refreshCookies();
+
+// Refresh cookies every 6 hours
+setInterval(refreshCookies, 6 * 60 * 60 * 1000);
 
 app.get('/stream', async (req, res) => {
     const videoUrl = req.query.url;
@@ -33,15 +49,16 @@ app.get('/stream', async (req, res) => {
         return res.status(400).send('Invalid YouTube URL');
     }
 
+    if (!globalCookies) {
+        return res.status(503).send('Cookies not ready yet, please try again shortly.');
+    }
+
     try {
-        const cookies = await getCookiesFromBrowserless(videoUrl);
-        
-        // Use cookies with yt-dlp to download video/audio
         const ytDlp = spawn('yt-dlp', [
-            '--cookies', cookies, // Pass the cookies string
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
-            '-f', 'best[height<=360]', // Your format selection
-            '-o', '-', // Output to stdout
+            '--add-header', `cookie: ${globalCookies}`,
+            '--add-header', 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
+            '-f', 'best[height<=360]',
+            '-o', '-', 
             videoUrl
         ]);
 
@@ -54,7 +71,7 @@ app.get('/stream', async (req, res) => {
 
         ytDlp.on('close', (code) => {
             if (code !== 0) {
-                console.error(`yt-dlp process exited with code ${code}`);
+                console.error(`yt-dlp exited with code ${code}`);
                 res.end();
             }
         });
@@ -65,8 +82,7 @@ app.get('/stream', async (req, res) => {
     }
 });
 
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
